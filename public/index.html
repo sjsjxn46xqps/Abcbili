@@ -1,0 +1,423 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>哔哩播放器</title>
+<style>
+:root{
+  --bg:#f5f6f8; --card:#ffffff; --text:#18191c; --sub:#61666d; --line:#e3e5e7;
+  --accent:#fb7299; --accent-dark:#f25d8e; --radius:12px;
+}
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:-apple-system,BlinkMacSystemFont,"PingFang SC","Hiragino Sans GB","Microsoft YaHei","Helvetica Neue",Arial,sans-serif;background:var(--bg);color:var(--text);}
+.container{max-width:980px;margin:0 auto;padding:0 16px;}
+
+/* 顶部 */
+.top{background:var(--card);border-bottom:1px solid var(--line);position:sticky;top:0;z-index:10;}
+.bar{display:flex;align-items:center;gap:14px;padding:12px 16px;flex-wrap:wrap;}
+.brand{display:flex;align-items:center;gap:8px;font-size:18px;font-weight:600;white-space:nowrap;}
+.brand .dot{width:10px;height:10px;border-radius:50%;background:var(--accent);}
+.load-form{display:flex;gap:8px;flex:1;min-width:260px;}
+.load-form input{flex:1;padding:9px 14px;border:1px solid var(--line);border-radius:8px;font-size:14px;outline:none;background:#fafbfc;}
+.load-form input:focus{border-color:var(--accent);}
+.btn{padding:9px 16px;border:none;border-radius:8px;font-size:14px;cursor:pointer;}
+.btn.primary{background:var(--accent);color:#fff;}
+.btn.primary:hover{background:var(--accent-dark);}
+.btn.ghost{background:#f2f3f5;color:var(--text);border:1px solid var(--line);}
+.btn.ghost:hover{background:#e8eaed;}
+.btn:disabled{opacity:.6;cursor:not-allowed;}
+
+/* 播放器 */
+.player-card{background:var(--card);border:1px solid var(--line);border-radius:var(--radius);margin-top:18px;overflow:hidden;}
+.video-wrap{position:relative;background:#000;aspect-ratio:16/9;}
+.video-wrap video{width:100%;height:100%;object-fit:contain;display:block;}
+#dmCanvas{position:absolute;inset:0;pointer-events:none;}
+.toolbar{display:flex;align-items:center;gap:12px;padding:10px 14px;flex-wrap:wrap;}
+.chip{padding:6px 14px;border:1px solid var(--line);border-radius:20px;background:#fff;font-size:13px;cursor:pointer;color:var(--sub);}
+.chip.on{background:var(--accent);border-color:var(--accent);color:#fff;}
+.select{padding:6px 10px;border:1px solid var(--line);border-radius:8px;font-size:13px;background:#fff;outline:none;color:var(--text);}
+.hint{font-size:12px;color:var(--sub);}
+
+/* 信息卡 */
+.info{background:var(--card);border:1px solid var(--line);border-radius:var(--radius);margin-top:14px;padding:16px;}
+.info h1{font-size:18px;line-height:1.5;margin-bottom:10px;}
+.up-row{display:flex;align-items:center;gap:10px;margin-bottom:12px;}
+.up-row img{width:38px;height:38px;border-radius:50%;object-fit:cover;background:#eee;}
+.up-row .up-name{font-size:14px;font-weight:500;}
+.up-row .up-date{font-size:12px;color:var(--sub);}
+.stats{display:flex;gap:18px;flex-wrap:wrap;padding:12px 0;border-top:1px solid var(--line);border-bottom:1px solid var(--line);font-size:13px;color:var(--sub);}
+.stats b{color:var(--text);font-weight:600;margin-right:3px;}
+.desc{margin-top:12px;font-size:13px;color:var(--sub);line-height:1.7;white-space:pre-wrap;}
+.desc.collapsed{max-height:60px;overflow:hidden;}
+
+/* 分P */
+.pages{display:flex;gap:8px;flex-wrap:wrap;margin-top:12px;}
+.page-btn{padding:7px 14px;border:1px solid var(--line);border-radius:8px;background:#fff;font-size:13px;cursor:pointer;color:var(--text);max-width:220px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+.page-btn.on{background:var(--accent);border-color:var(--accent);color:#fff;}
+
+/* 搜索 */
+.search{background:var(--card);border:1px solid var(--line);border-radius:var(--radius);margin-top:18px;overflow:hidden;}
+.s-row{display:flex;gap:12px;padding:12px 14px;border-bottom:1px solid var(--line);cursor:pointer;align-items:center;}
+.s-row:last-child{border-bottom:none;}
+.s-row:hover{background:#fafbfc;}
+.s-row img{width:120px;height:68px;object-fit:cover;border-radius:8px;background:#eee;flex-shrink:0;}
+.s-main{min-width:0;}
+.s-title{font-size:14px;line-height:1.5;margin-bottom:6px;color:var(--text);}
+.s-meta{font-size:12px;color:var(--sub);}
+
+/* 空状态 */
+.empty{padding:80px 20px;text-align:center;color:var(--sub);}
+.empty svg{width:56px;height:56px;margin-bottom:14px;}
+.empty p{font-size:14px;line-height:1.8;}
+
+/* 弹窗 */
+.modal-mask{position:fixed;inset:0;background:rgba(0,0,0,.45);display:flex;align-items:center;justify-content:center;z-index:100;padding:16px;}
+.modal{background:#fff;border-radius:14px;padding:20px;width:100%;max-width:460px;}
+.modal h3{font-size:16px;margin-bottom:10px;}
+.modal p{font-size:13px;color:var(--sub);line-height:1.7;margin-bottom:12px;}
+.modal textarea{width:100%;height:90px;border:1px solid var(--line);border-radius:8px;padding:10px;font-size:12px;resize:vertical;outline:none;font-family:inherit;}
+.modal-actions{display:flex;justify-content:flex-end;gap:8px;margin-top:14px;}
+
+/* toast */
+#toast{position:fixed;left:50%;bottom:30px;transform:translateX(-50%);background:rgba(24,25,28,.92);color:#fff;padding:10px 18px;border-radius:8px;font-size:13px;opacity:0;transition:opacity .25s;pointer-events:none;z-index:200;max-width:80vw;}
+#toast.show{opacity:1;}
+
+footer{text-align:center;color:var(--sub);font-size:12px;padding:24px 0 40px;}
+</style>
+</head>
+<body>
+
+<header class="top">
+  <div class="bar container">
+    <div class="brand"><span class="dot"></span>哔哩播放器</div>
+    <form class="load-form" id="loadForm">
+      <input id="input" type="text" placeholder="粘贴视频链接 / BV号 / 搜索关键词" autocomplete="off">
+      <button type="submit" class="btn primary" id="loadBtn">加载</button>
+      <button type="button" class="btn ghost" id="settingsBtn">设置</button>
+    </form>
+  </div>
+</header>
+
+<main class="container">
+
+  <section class="player-card" id="playerCard" style="display:none">
+    <div class="video-wrap">
+      <video id="player" controls playsinline preload="auto"></video>
+      <canvas id="dmCanvas"></canvas>
+    </div>
+    <div class="toolbar">
+      <button class="chip" id="dmBtn">弹幕</button>
+      <select class="select" id="quality">
+        <option value="16">360P</option>
+        <option value="32">480P</option>
+        <option value="64">720P</option>
+        <option value="80" selected>1080P</option>
+        <option value="112">1080P+</option>
+        <option value="116">1080P60</option>
+        <option value="120">4K</option>
+      </select>
+      <span class="hint" id="qualityHint"></span>
+    </div>
+  </section>
+
+  <section class="info" id="infoCard" style="display:none">
+    <h1 id="vTitle"></h1>
+    <div class="up-row">
+      <img id="vUpFace" alt="up">
+      <div>
+        <div class="up-name" id="vUpName"></div>
+        <div class="up-date" id="vPub"></div>
+      </div>
+    </div>
+    <div class="stats">
+      <span>播放 <b id="statPlay"></b></span>
+      <span>弹幕 <b id="statDm"></b></span>
+      <span>点赞 <b id="statLike"></b></span>
+      <span>投币 <b id="statCoin"></b></span>
+      <span>收藏 <b id="statFav"></b></span>
+    </div>
+    <div class="desc collapsed" id="vDesc" onclick="this.classList.toggle('collapsed')"></div>
+    <div class="pages" id="pages" style="display:none"></div>
+  </section>
+
+  <section class="search" id="searchResult" style="display:none"></section>
+
+  <section class="empty" id="emptyState">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M8 5v14l11-7z"/></svg>
+    <p>输入 B 站视频链接、BV号,或直接输入关键词搜索<br>支持多 P 切换与弹幕播放</p>
+  </section>
+
+</main>
+
+<footer>数据来源: 哔哩哔哩开放 API · 本项目仅用于学习交流</footer>
+
+<div class="modal-mask" id="modal" style="display:none">
+  <div class="modal">
+    <h3>登录 Cookie(可选)</h3>
+    <p>在浏览器登录 B 站后,复制 Cookie 粘贴到此处,可解锁更高画质(1080P+ / 4K)。Cookie 仅保存在你本地浏览器,不会上传。</p>
+    <textarea id="cookieInput" placeholder="SESSDATA=...; bili_jct=...; DedeUserID=..."></textarea>
+    <div class="modal-actions">
+      <button class="btn ghost" id="modalCancel">取消</button>
+      <button class="btn primary" id="modalSave">保存</button>
+    </div>
+  </div>
+</div>
+
+<div id="toast"></div>
+
+<script>
+const $ = s => document.querySelector(s);
+const player = $('#player');
+const dmCanvas = $('#dmCanvas');
+const dmCtx = dmCanvas.getContext('2d');
+let current = { bvid: '', cid: '', pages: [], page: 1 };
+let dmOn = false, dmItems = null, dmPlayer = null;
+
+const esc = s => String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const fmt = n => { n = +n || 0; return n >= 10000 ? (n/10000).toFixed(1) + '万' : n; };
+const fmtDuration = s => { s = +s || 0; const h = Math.floor(s/3600), m = Math.floor(s%3600/60), se = Math.floor(s%60); return (h ? h+':' : '') + String(m).padStart(2,'0') + ':' + String(se).padStart(2,'0'); };
+
+let toastTimer;
+function toast(msg){ const t = $('#toast'); t.textContent = msg; t.classList.add('show'); clearTimeout(toastTimer); toastTimer = setTimeout(()=>t.classList.remove('show'), 2600); }
+
+function setLoading(on){ const b = $('#loadBtn'); b.disabled = on; b.textContent = on ? '加载中' : '加载'; }
+
+/* ---------- 输入处理 ---------- */
+$('#loadForm').addEventListener('submit', async e => {
+  e.preventDefault();
+  let input = $('#input').value.trim();
+  if (!input) return toast('请输入视频链接或关键词');
+  if (/b23\.tv/i.test(input)) {
+    const r = await fetch('/api/resolve?url=' + encodeURIComponent(/^https?:/i.test(input) ? input : 'https://' + input)).then(x => x.json());
+    input = r.url || input;
+  }
+  const m = input.match(/BV[0-9A-Za-z]{10}/);
+  if (m) {
+    const p = parseInt((input.match(/[?&]p=(\d+)/) || [])[1]) || 1;
+    loadVideo(m[0], p);
+  } else {
+    search(input);
+  }
+});
+
+/* ---------- 加载视频 ---------- */
+async function loadVideo(bvid, page = 1) {
+  setLoading(true);
+  try {
+    const r = await fetch('/api/info?bvid=' + bvid).then(x => x.json());
+    if (r.code !== 0) return toast(r.message || '获取视频信息失败');
+    const d = r.data;
+    current.bvid = bvid;
+    current.pages = d.pages && d.pages.length ? d.pages : [{ cid: d.cid, part: d.title }];
+    current.page = Math.min(page, current.pages.length);
+    renderInfo(d);
+    $('#searchResult').style.display = 'none';
+    $('#emptyState').style.display = 'none';
+    $('#playerCard').style.display = 'block';
+    document.title = d.title + ' - 哔哩播放器';
+    await playPage(current.page);
+  } catch (e) { toast('加载失败: ' + e.message); }
+  finally { setLoading(false); }
+}
+
+function renderInfo(d) {
+  $('#vTitle').textContent = d.title;
+  $('#vUpFace').src = d.owner.face;
+  $('#vUpName').textContent = d.owner.name;
+  $('#vPub').textContent = '发布: ' + (d.pubdate ? new Date(d.pubdate * 1000).toLocaleDateString() : '');
+  $('#statPlay').textContent = fmt(d.stat.view);
+  $('#statDm').textContent = fmt(d.stat.danmaku);
+  $('#statLike').textContent = fmt(d.stat.like);
+  $('#statCoin').textContent = fmt(d.stat.coin);
+  $('#statFav').textContent = fmt(d.stat.favorite);
+  $('#vDesc').textContent = d.desc || '';
+  $('#vDesc').className = 'desc' + (d.desc && d.desc.length > 60 ? ' collapsed' : '');
+  $('#infoCard').style.display = 'block';
+  updatePages();
+}
+
+function updatePages() {
+  const box = $('#pages');
+  box.innerHTML = '';
+  if (!current.pages || current.pages.length < 2) { box.style.display = 'none'; return; }
+  box.style.display = 'flex';
+  current.pages.forEach((p, i) => {
+    const b = document.createElement('button');
+    b.className = 'page-btn' + (i + 1 === current.page ? ' on' : '');
+    b.textContent = (i + 1) + 'P  ' + p.part;
+    b.title = p.part;
+    b.onclick = () => playPage(i + 1);
+    box.appendChild(b);
+  });
+}
+
+/* ---------- 播放 ---------- */
+async function fetchPlay(bvid, cid, qn) {
+  const cookie = localStorage.getItem('biliCookie') || '';
+  const get = async q => {
+    const r = await fetch(`/api/playurl?bvid=${bvid}&cid=${cid}&qn=${q}&cookie=${encodeURIComponent(cookie)}`).then(x => x.json());
+    return r;
+  };
+  let j = await get(qn);
+  if (j.code !== 0) throw new Error(j.message || '获取播放地址失败');
+  if (j.data && j.data.durl && j.data.durl.length) return j.data;
+  if (j.data && j.data.dash && j.data.dash.video && j.data.dash.video.length) {
+    const err = new Error('该视频仅提供 DASH 音视频分离流');
+    err.dashOnly = true;
+    throw err;
+  }
+  for (const q of [64, 32, 16]) {
+    const j2 = await get(q);
+    if (j2.code === 0 && j2.data && j2.data.durl && j2.data.durl.length) return j2.data;
+  }
+  throw new Error('暂无可播放的 MP4 流,请登录 Cookie 或稍后重试');
+}
+
+async function playPage(page) {
+  const p = current.pages[page - 1];
+  current.page = page;
+  current.cid = p.cid;
+  const qn = parseInt($('#quality').value);
+  updatePages();
+  try {
+    const data = await fetchPlay(current.bvid, p.cid, qn);
+    playSegments(data.durl.map(d => d.url));
+    $('#qualityHint').textContent = '当前: ' + (data.quality ? data.quality + 'P' : qn + 'P 请求');
+    if (dmOn) { dmItems = null; loadDm(p.cid); }
+  } catch (e) {
+    $('#qualityHint').textContent = e.dashOnly ? '该视频仅 DASH 格式,建议在设置中填入登录 Cookie' : e.message;
+    toast(e.message);
+  }
+}
+
+function playSegments(urls) {
+  let idx = 0;
+  player.onended = () => {
+    idx++;
+    if (idx < urls.length) { player.src = '/api/stream?url=' + encodeURIComponent(urls[idx]); player.play().catch(() => {}); }
+    else player.onended = null;
+  };
+  player.src = '/api/stream?url=' + encodeURIComponent(urls[0]);
+  player.play().catch(() => {});
+}
+
+$('#quality').addEventListener('change', () => { if (current.bvid) playPage(current.page); });
+
+/* ---------- 弹幕 ---------- */
+function parseDm(xml) {
+  const doc = new DOMParser().parseFromString(xml, 'text/xml');
+  const items = [];
+  doc.querySelectorAll('d').forEach(el => {
+    const p = (el.getAttribute('p') || '').split(',');
+    items.push({ t: parseFloat(p[0]) || 0, mode: parseInt(p[1]) || 1, size: parseInt(p[2]) || 25, color: parseInt(p[3]) || 0xffffff, text: el.textContent });
+  });
+  return items;
+}
+
+async function loadDm(cid) {
+  try {
+    const xml = await fetch('/api/dm?oid=' + cid).then(r => r.text());
+    dmItems = parseDm(xml);
+    if (dmOn) startDm();
+  } catch (e) { dmItems = []; }
+}
+
+class DmPlayer {
+  constructor(cv, video) { this.cv = cv; this.ctx = cv.getContext('2d'); this.video = video; this.items = []; this.active = []; this.running = false; }
+  set(items) { this.items = items.slice().sort((a, b) => a.t - b.t); }
+  start() { if (this.running) return; this.running = true; this.loop(); }
+  stop() { this.running = false; cancelAnimationFrame(this.raf); this.ctx.clearRect(0, 0, this.cv.width, this.cv.height); this.active = []; }
+  spawn(it, W, H) {
+    this.ctx.font = it.size + 'px sans-serif';
+    const w = this.ctx.measureText(it.text).width;
+    if (it.mode === 4 || it.mode === 5) {
+      const base = it.mode === 4 ? 24 : H - 24;
+      this.active.push({ ...it, x: (W - w) / 2, y: base, w, base, life: 4000 });
+    } else {
+      const lane = Math.floor(Math.random() * (H / (it.size + 6)));
+      this.active.push({ ...it, x: W, y: (lane + 1) * (it.size + 6), w, speed: (W + w) / (3 + Math.random() * 2) });
+    }
+  }
+  loop() {
+    if (!this.running) return;
+    const W = this.cv.width, H = this.cv.height, t = this.video.currentTime;
+    this.ctx.clearRect(0, 0, W, H);
+    while (this.items.length && this.items[0].t <= t) this.spawn(this.items.shift(), W, H);
+    for (let i = this.active.length - 1; i >= 0; i--) {
+      const d = this.active[i];
+      if (d.mode === 4 || d.mode === 5) d.life -= 16;
+      else d.x -= d.speed;
+      this.ctx.font = d.size + 'px sans-serif';
+      this.ctx.fillStyle = '#' + d.color.toString(16).padStart(6, '0');
+      this.ctx.fillText(d.text, d.x, d.y);
+      if (d.life <= 0 || (d.mode !== 4 && d.mode !== 5 && d.x + d.w < -10)) this.active.splice(i, 1);
+    }
+    this.raf = requestAnimationFrame(() => this.loop());
+  }
+}
+
+function startDm() {
+  if (!dmPlayer) dmPlayer = new DmPlayer(dmCanvas, player);
+  if (dmItems && dmItems.length) { dmPlayer.set(dmItems); dmPlayer.start(); }
+  else { toast('暂无弹幕'); dmOn = false; $('#dmBtn').classList.remove('on'); }
+}
+function stopDm() { if (dmPlayer) dmPlayer.stop(); }
+
+$('#dmBtn').addEventListener('click', () => {
+  dmOn = !dmOn;
+  $('#dmBtn').classList.toggle('on', dmOn);
+  if (dmOn) {
+    if (!dmItems && current.cid) loadDm(current.cid);
+    else startDm();
+  } else stopDm();
+});
+
+function resizeDm() {
+  const dpr = Math.min(window.devicePixelRatio || 1, 2);
+  dmCanvas.width = player.clientWidth * dpr;
+  dmCanvas.height = player.clientHeight * dpr;
+  dmCanvas.style.width = player.clientWidth + 'px';
+  dmCanvas.style.height = player.clientHeight + 'px';
+  dmCtx.setTransform(dpr, 0, 0, dpr, 0, 0);
+}
+window.addEventListener('resize', resizeDm);
+player.addEventListener('loadedmetadata', resizeDm);
+
+/* ---------- 搜索 ---------- */
+async function search(keyword) {
+  setLoading(true);
+  try {
+    const r = await fetch('/api/search?keyword=' + encodeURIComponent(keyword)).then(x => x.json());
+    if (r.code !== 0) return toast(r.message || '搜索失败');
+    const list = (r.data && r.data.result) || [];
+    const box = $('#searchResult');
+    box.innerHTML = '';
+    box.style.display = list.length ? 'block' : 'none';
+    $('#emptyState').style.display = list.length ? 'none' : 'block';
+    list.slice(0, 15).forEach(v => {
+      const row = document.createElement('div');
+      row.className = 's-row';
+      row.innerHTML = `<img src="${esc(v.pic)}" loading="lazy"><div class="s-main"><div class="s-title">${esc(String(v.title).replace(/<[^>]+>/g, ''))}</div><div class="s-meta">${esc(v.author || '')} · ${fmt(v.play)} 播放 · ${fmtDuration(v.duration)}</div></div>`;
+      row.onclick = () => { if (v.bvid) loadVideo(v.bvid, 1); };
+      box.appendChild(row);
+    });
+  } catch (e) { toast('搜索失败: ' + e.message); }
+  finally { setLoading(false); }
+}
+
+/* ---------- 设置 ---------- */
+$('#settingsBtn').addEventListener('click', () => {
+  $('#cookieInput').value = localStorage.getItem('biliCookie') || '';
+  $('#modal').style.display = 'flex';
+});
+$('#modalCancel').addEventListener('click', () => $('#modal').style.display = 'none');
+$('#modalSave').addEventListener('click', () => {
+  localStorage.setItem('biliCookie', $('#cookieInput').value.trim());
+  $('#modal').style.display = 'none';
+  toast('已保存 Cookie');
+});
+$('#modal').addEventListener('click', e => { if (e.target === $('#modal')) $('#modal').style.display = 'none'; });
+</script>
+</body>
+</html>
